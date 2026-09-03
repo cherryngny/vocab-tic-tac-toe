@@ -133,4 +133,412 @@
         .turn-x { color: var(--player-x); }
         .turn-o { color: var(--player-o); }
 
-        /* Tic-Tac-Toe 3x3 Grid with Flip
+        /* Tic-Tac-Toe 3x3 Grid with Flip Cards */
+        .grid-3x3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            aspect-ratio: 1;
+            margin-bottom: 16px;
+        }
+
+        .flip-card {
+            background-color: transparent;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .flip-card.flipped .flip-card-inner {
+            transform: rotateY(180deg) rotateZ(180deg);
+        }
+
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #E2E8F0;
+            overflow: hidden;
+            background: white;
+        }
+
+        .flip-card-front img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .flip-card-back {
+            transform: rotateY(180deg) rotateZ(180deg);
+            font-size: 3rem;
+            font-weight: 900;
+        }
+
+        .flip-card-back.mark-x {
+            color: var(--player-x);
+            background: #EFF6FF;
+            border-color: var(--player-x);
+        }
+
+        .flip-card-back.mark-o {
+            color: var(--player-o);
+            background: #FEF3C7;
+            border-color: var(--player-o);
+        }
+
+        .flip-card.winner .flip-card-inner {
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.9);
+        }
+
+        .flip-card.winner .flip-card-back {
+            border-color: var(--secondary) !important;
+            background: #D1FAE5 !important;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:disabled {
+            background: #94A3B8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>詞彙井字過三關</h1>
+    </header>
+
+    <div id="setup-screen" class="card">
+        <h3 style="margin: 0; color: #334155;">選擇 2 至 9 個詞彙 Select 2-9 Items (<span id="selected-count">0</span>/9)</h3>
+
+        <div class="selection-scroll-area" id="all-items-container"></div>
+
+        <button id="start-btn" class="btn" disabled onclick="startGame()">開始遊戲 Start Game</button>
+    </div>
+
+    <div id="game-screen" class="card hidden">
+        <div class="game-status">
+            <span>玩家 Player: <span id="current-player" class="turn-x">X</span></span>
+            <span id="game-message" style="font-size: 0.95rem; color: #64748B;">點擊圖片並說出詞彙！</span>
+        </div>
+
+        <div class="grid-3x3" id="grid-container"></div>
+
+        <button id="reset-btn" class="btn" onclick="resetToSetup()">重新選擇 Re-select</button>
+    </div>
+
+    <script>
+        const VOCABULARY_DATA = [
+            {
+                category: "職業",
+                items: [
+                    { name: "警察", imgs: ["1.png", "2.png"] },
+                    { name: "郵差", imgs: ["3.png", "4.png"] },
+                    { name: "廚師", imgs: ["5.png", "6.png"] },
+                    { name: "消防員", imgs: ["7.png", "8.png"] },
+                    { name: "護士", imgs: ["9.png", "10.png"] },
+                    { name: "太空人", imgs: ["11.png", "12.png"] },
+                    { name: "清潔工人", imgs: ["13.png", "14.png"] },
+                    { name: "司機", imgs: ["15.png", "16.png"] },
+                    { name: "畫家", imgs: ["17.png", "18.png"] },
+                    { name: "牙醫", imgs: ["19.png", "20.png"] },
+                    { name: "農夫", imgs: ["21.png", "22.png"] },
+                    { name: "救生員", imgs: ["23.png", "24.png"] }
+                ]
+            },
+            {
+                category: "文具",
+                items: [
+                    { name: "擦膠", imgs: ["25.png", "26.png"] },
+                    { name: "間尺", imgs: ["27.png", "28.png"] },
+                    { name: "鉸剪", imgs: ["29.png", "30.png"] },
+                    { name: "白膠漿", imgs: ["31.png", "32.png"] },
+                    { name: "漿糊筆", imgs: ["33.png", "34.png"] },
+                    { name: "膠紙", imgs: ["35.png", "36.png"] },
+                    { name: "萬字夾", imgs: ["37.png", "38.png"] },
+                    { name: "釘書機", imgs: ["39.png", "40.png"] },
+                    { name: "顏色筆", imgs: ["41.png", "42.png"] },
+                    { name: "筆袋", imgs: ["43.png", "44.png"] },
+                    { name: "筆盒", imgs: ["45.png", "46.png"] }
+                ]
+            },
+            {
+                category: "飾物",
+                items: [
+                    { name: "頸鏈", imgs: ["47.png", "48.png"] },
+                    { name: "眼鏡", imgs: ["49.png", "50.png"] },
+                    { name: "手鏈", imgs: ["51.png", "52.png"] },
+                    { name: "耳環", imgs: ["53.png", "54.png"] },
+                    { name: "髮夾", imgs: ["55.png", "56.png"] },
+                    { name: "手錶", imgs: ["57.png", "58.png"] },
+                    { name: "戒指", imgs: ["59.png", "60.png"] },
+                    { name: "頭箍", imgs: ["61.png", "62.png"] },
+                    { name: "頸巾", imgs: ["63.png", "64.png"] },
+                    { name: "太陽眼鏡", imgs: ["65.png", "66.png"] }
+                ]
+            },
+            {
+                category: "地方名稱",
+                items: [
+                    { name: "泳池", imgs: ["67.png", "68.png"] },
+                    { name: "圖書館", imgs: ["69.png", "70.png"] },
+                    { name: "動物園", imgs: ["71.png", "72.png"] },
+                    { name: "超級市場", imgs: ["73.png", "74.png"] },
+                    { name: "輕鐵站", imgs: ["75.png", "76.png"] },
+                    { name: "巴士站", imgs: ["77.png", "78.png"] },
+                    { name: "麵包店", imgs: ["79.png", "80.png"] },
+                    { name: "飛機場", imgs: ["81.png", "82.png"] },
+                    { name: "戲院", imgs: ["83.png", "84.png"] }
+                ]
+            },
+            {
+                category: "電器",
+                items: [
+                    { name: "雪櫃", imgs: ["85.png", "86.png"] },
+                    { name: "洗衣機", imgs: ["87.png", "88.png"] },
+                    { name: "冷氣", imgs: ["89.png", "90.png"] },
+                    { name: "微波爐", imgs: ["91.png", "92.png"] },
+                    { name: "吸塵機", imgs: ["93.png", "94.png"] },
+                    { name: "風筒", imgs: ["95.png", "96.png"] },
+                    { name: "電飯煲", imgs: ["97.png", "98.png"] },
+                    { name: "風扇", imgs: ["99.png", "100.png"] },
+                    { name: "電腦", imgs: ["101.png", "102.png"] }
+                ]
+            }
+        ];
+
+        // Audio Context
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+
+            if (type === 'flip') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'win') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.12);
+                osc.frequency.setValueAtTime(783.99, now + 0.24);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now); osc.stop(now + 0.5);
+            }
+        }
+
+        let selectedItemsList = [];
+        let currentPlayer = 'X';
+        let boardState = Array(9).fill(null);
+        let isGameActive = false;
+
+        const WINNING_COMBOS = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        window.onload = () => {
+            renderAllItemsList();
+        };
+
+        function renderAllItemsList() {
+            const container = document.getElementById('all-items-container');
+            container.innerHTML = '';
+
+            VOCABULARY_DATA.forEach(catGroup => {
+                const title = document.createElement('div');
+                title.className = 'category-title';
+                title.innerText = catGroup.category;
+                container.appendChild(title);
+
+                const grid = document.createElement('div');
+                grid.className = 'items-grid';
+
+                catGroup.items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'item-card';
+                    card.dataset.name = item.name;
+
+                    card.innerHTML = `
+                        <img src="${item.imgs[0]}" alt="${item.name}">
+                        <span>${item.name}</span>
+                    `;
+
+                    card.onclick = () => toggleItemSelection(item, card);
+                    grid.appendChild(card);
+                });
+
+                container.appendChild(grid);
+            });
+        }
+
+        function toggleItemSelection(item, element) {
+            const index = selectedItemsList.findIndex(s => s.name === item.name);
+
+            if (index > -1) {
+                selectedItemsList.splice(index, 1);
+                element.classList.remove('selected');
+            } else {
+                if (selectedItemsList.length >= 9) return;
+                selectedItemsList.push(item);
+                element.classList.add('selected');
+            }
+
+            updateStartButton();
+        }
+
+        function updateStartButton() {
+            const countElem = document.getElementById('selected-count');
+            const startBtn = document.getElementById('start-btn');
+            
+            countElem.innerText = selectedItemsList.length;
+            // Enable start button if between 2 and 9 items are selected
+            startBtn.disabled = selectedItemsList.length < 2 || selectedItemsList.length > 9;
+        }
+
+        function startGame() {
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            currentPlayer = 'X';
+            boardState = Array(9).fill(null);
+            isGameActive = true;
+
+            updateTurnUI();
+            build3x3Grid();
+        }
+
+        function build3x3Grid() {
+            const container = document.getElementById('grid-container');
+            container.innerHTML = '';
+
+            // Fill 9 grid slots by repeating selected items evenly if < 9 items are chosen
+            let gridItems = [];
+            while (gridItems.length < 9) {
+                gridItems = gridItems.concat(selectedItemsList);
+            }
+            gridItems = gridItems.slice(0, 9);
+
+            // Shuffle grid items across the 3x3 layout
+            const shuffledItems = shuffleArray(gridItems);
+
+            shuffledItems.forEach((item, index) => {
+                const randomImg = item.imgs[Math.floor(Math.random() * item.imgs.length)];
+
+                const card = document.createElement('div');
+                card.className = 'flip-card';
+                card.dataset.index = index;
+
+                card.innerHTML = `
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front">
+                            <img src="${randomImg}" alt="${item.name}">
+                        </div>
+                        <div class="flip-card-back" id="back-${index}"></div>
+                    </div>
+                `;
+
+                card.onclick = () => handleCellClick(card, index);
+                container.appendChild(card);
+            });
+        }
+
+        function handleCellClick(cardElement, index) {
+            if (!isGameActive || boardState[index] !== null) return;
+
+            boardState[index] = currentPlayer;
+            playSound('flip');
+
+            const backElem = document.getElementById(`back-${index}`);
+            backElem.innerText = currentPlayer;
+            backElem.classList.add(currentPlayer === 'X' ? 'mark-x' : 'mark-o');
+            cardElement.classList.add('flipped');
+
+            if (checkWin()) {
+                isGameActive = false;
+                playSound('win');
+                document.getElementById('game-message').innerText = `🎉 玩家 ${currentPlayer} 勝出！`;
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            } else if (boardState.every(cell => cell !== null)) {
+                isGameActive = false;
+                document.getElementById('game-message').innerText = '🤝 平手！ Draw Game!';
+            } else {
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                updateTurnUI();
+            }
+        }
+
+        function checkWin() {
+            for (let combo of WINNING_COMBOS) {
+                const [a, b, c] = combo;
+                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                    highlightWinningCells(combo);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function highlightWinningCells(combo) {
+            const cards = document.querySelectorAll('.flip-card');
+            combo.forEach(index => {
+                cards[index].classList.add('winner');
+            });
+        }
+
+        function updateTurnUI() {
+            const playerElem = document.getElementById('current-player');
+            playerElem.innerText = currentPlayer;
+            playerElem.className = currentPlayer === 'X' ? 'turn-x' : 'turn-o';
+        }
+
+        function resetToSetup() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('setup-screen').classList.remove('hidden');
+        }
+
+        function shuffleArray(arr) {
+            return arr.slice().sort(() => Math.random() - 0.5);
+        }
+    </script>
+</body>
+</html>
