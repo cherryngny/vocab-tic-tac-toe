@@ -78,18 +78,29 @@
             border: 2px solid #CBD5E1;
             background: #F1F5F9;
             color: #475569;
-            padding: 10px 4px;
+            padding: 8px 4px;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
         }
 
         .cat-btn.active {
             background: var(--primary);
             color: white;
             border-color: var(--primary);
+        }
+
+        .cat-badge {
+            display: inline-block;
+            background: var(--secondary);
+            color: white;
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 0.75rem;
+            margin-left: 4px;
         }
 
         /* Items Selector Grid */
@@ -163,7 +174,6 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
 
-        /* Flipped state: rotates upside down / backwards */
         .flip-card.flipped .flip-card-inner {
             transform: rotateY(180deg) rotateZ(180deg);
         }
@@ -244,12 +254,10 @@
     </header>
 
     <div id="setup-screen" class="card">
-        <h3 style="margin: 0 0 8px 0; color: #334155;">1. 選擇目標類別 Select Category</h3>
-        <div class="category-grid" id="category-container"></div>
+        <h3 style="margin: 0 0 4px 0; color: #334155;">選擇 9 個詞彙 Select 9 Items (<span id="selected-count">0</span>/9)</h3>
+        <p class="subtitle">可跨類別自由選擇！ Free to select across categories!</p>
 
-        <h3 style="margin: 16px 0 4px 0; color: #334155;">
-            2. 選擇 9 個詞彙 Select 9 Items (<span id="selected-count">0</span>/9)
-        </h3>
+        <div class="category-grid" id="category-container"></div>
         <div class="items-grid" id="items-container"></div>
 
         <button id="start-btn" class="btn" disabled onclick="startGame()">開始遊戲 Start Game</button>
@@ -267,8 +275,7 @@
     </div>
 
     <script>
-        // Updated Vocabulary Database with 救生員 added
-        // Sequential image mapping: 1.png - 104.png (2 images per item)
+        // Exact Vocabulary Database with Image Paths
         const VOCABULARY_DATA = [
             {
                 category: "職業",
@@ -377,7 +384,7 @@
 
         // App State
         let activeCategoryIndex = 0;
-        let selectedItemNames = [];
+        let selectedItemsList = []; // Holds objects: { name, imgs }
         let currentPlayer = 'X';
         let boardState = Array(9).fill(null);
         let isGameActive = false;
@@ -398,23 +405,25 @@
             container.innerHTML = '';
 
             VOCABULARY_DATA.forEach((cat, index) => {
+                const count = countSelectedInCategory(index);
                 const btn = document.createElement('button');
-                btn.className = `cat-btn ${index === 0 ? 'active' : ''}`;
-                btn.innerText = cat.category;
+                btn.className = `cat-btn ${index === activeCategoryIndex ? 'active' : ''}`;
+                btn.innerHTML = `${cat.category}${count > 0 ? `<span class="cat-badge">${count}</span>` : ''}`;
                 btn.onclick = () => selectCategory(index);
                 container.appendChild(btn);
             });
         }
 
+        function countSelectedInCategory(catIndex) {
+            const catItems = VOCABULARY_DATA[catIndex].items;
+            return selectedItemsList.filter(selected => 
+                catItems.some(item => item.name === selected.name)
+            ).length;
+        }
+
         function selectCategory(catIndex) {
             activeCategoryIndex = catIndex;
-            selectedItemNames = [];
-
-            const buttons = document.querySelectorAll('.cat-btn');
-            buttons.forEach((btn, idx) => {
-                btn.classList.toggle('active', idx === catIndex);
-            });
-
+            renderCategorySelector();
             renderItemsSelector();
             updateStartButton();
         }
@@ -425,26 +434,28 @@
 
             const currentCategory = VOCABULARY_DATA[activeCategoryIndex];
             currentCategory.items.forEach(item => {
+                const isSelected = selectedItemsList.some(s => s.name === item.name);
                 const card = document.createElement('div');
-                card.className = 'item-card';
+                card.className = `item-card ${isSelected ? 'selected' : ''}`;
                 card.innerText = item.name;
-                card.onclick = () => toggleItemSelection(item.name, card);
+                card.onclick = () => toggleItemSelection(item, card);
                 container.appendChild(card);
             });
         }
 
-        function toggleItemSelection(itemName, element) {
-            const index = selectedItemNames.indexOf(itemName);
+        function toggleItemSelection(item, element) {
+            const index = selectedItemsList.findIndex(s => s.name === item.name);
 
             if (index > -1) {
-                selectedItemNames.splice(index, 1);
+                selectedItemsList.splice(index, 1);
                 element.classList.remove('selected');
             } else {
-                if (selectedItemNames.length >= 9) return;
-                selectedItemNames.push(itemName);
+                if (selectedItemsList.length >= 9) return;
+                selectedItemsList.push(item);
                 element.classList.add('selected');
             }
 
+            renderCategorySelector();
             updateStartButton();
         }
 
@@ -452,8 +463,8 @@
             const countElem = document.getElementById('selected-count');
             const startBtn = document.getElementById('start-btn');
             
-            countElem.innerText = selectedItemNames.length;
-            startBtn.disabled = selectedItemNames.length !== 9;
+            countElem.innerText = selectedItemsList.length;
+            startBtn.disabled = selectedItemsList.length !== 9;
         }
 
         function startGame() {
@@ -472,10 +483,8 @@
             const container = document.getElementById('grid-container');
             container.innerHTML = '';
 
-            const currentCategoryItems = VOCABULARY_DATA[activeCategoryIndex].items;
-            const chosenItems = currentCategoryItems.filter(item => selectedItemNames.includes(item.name));
-            
-            const shuffledItems = shuffleArray(chosenItems);
+            // Shuffle the 9 cross-category selected items
+            const shuffledItems = shuffleArray(selectedItemsList);
 
             shuffledItems.forEach((item, index) => {
                 const randomImg = item.imgs[Math.floor(Math.random() * item.imgs.length)];
